@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cranker Galaxy Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #202124;
+            color: #e8eaed;
+            font-family: 'Google Sans', 'Roboto', Arial, sans-serif;
+        }
+        canvas {
+            display: block;
+        }
+        #info {
+            position: absolute;
+            top: 24px;
+            left: 24px;
+            width: 300px;
+            padding: 24px;
+            background-color: rgba(32, 33, 36, 0.85);
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+        }
+        h1 {
+            margin-top: 0;
+            color: #8a2be2;
+            font-size: 24px;
+            font-weight: 500;
+        }
+        p {
+            margin: 8px 0;
+            font-size: 14px;
+            line-height: 20px;
+        }
+        .highlight {
+            color: #8a2be2;
+            font-weight: 500;
+        }
+        #controls {
+            position: absolute;
+            bottom: 24px;
+            left: 24px;
+            padding: 16px;
+            background-color: rgba(32, 33, 36, 0.85);
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 100;
+            display: flex;
+            gap: 8px;
+        }
+        button {
+            background-color: #8a2be2;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            font-family: 'Google Sans', 'Roboto', Arial, sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        button:hover {
+            background-color: #9b4dff;
+        }
+        button:active {
+            background-color: #7929b2;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>Clanker Galaxy</h1>
+        <p>This simulation represents a rotating galaxy with <span class="highlight">229,099</span> stars.</p>
+        <p>Volume of Tokens on Clanker: <span class="highlight">$2,625,653,972</span></p>
+        <p>Total Tokens: <span class="highlight">229,099</span></p>
+    </div>
+    
+    <div id="sidebar" style="position: absolute; top: 24px; right: 24px; width: 250px; padding: 20px; background-color: rgba(32, 33, 36, 0.85); border-radius: 8px; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); z-index: 100; font-size: 14px; line-height: 20px;">
+        <h2 style="color: #8a2be2; margin-top: 0; margin-bottom: 16px; font-weight: 500;">Controls</h2>
+        
+        <div style="margin-bottom: 16px;">
+            <label for="zoomSlider" style="display: block; margin-bottom: 6px;">Zoom</label>
+            <input type="range" id="zoomSlider" min="30" max="300" value="120" style="width: 100%; height: 12px; -webkit-appearance: none; background: #444; border-radius: 5px; outline: none; opacity: 0.7; transition: opacity .2s;">
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+            <label for="rotationSlider" style="display: block; margin-bottom: 6px;">Rotation Speed</label>
+            <input type="range" id="rotationSlider" min="0" max="10" value="5" style="width: 100%; height: 12px; -webkit-appearance: none; background: #444; border-radius: 5px; outline: none; opacity: 0.7; transition: opacity .2s;">
+        </div>
+        
+        <div style="margin-bottom: 16px;">
+            <label for="brightnessSlider" style="display: block; margin-bottom: 6px;">Star Brightness</label>
+            <input type="range" id="brightnessSlider" min="0" max="30" value="10" style="width: 100%; height: 12px; -webkit-appearance: none; background: #444; border-radius: 5px; outline: none; opacity: 0.7; transition: opacity .2s;">
+        </div>
+        
+        <div style="margin-top: 24px;">
+            <p><strong>Mouse Controls:</strong></p>
+            <p>Left click + drag: Rotate camera</p>
+            <p>Scroll wheel: Zoom in/out</p>
+        </div>
+    </div>
+    
+    <style>
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #8a2be2;
+            cursor: pointer;
+        }
+        
+        input[type=range]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #8a2be2;
+            cursor: pointer;
+            border: none;
+        }
+        
+        input[type=range]:hover {
+            opacity: 1;
+        }
+    </style>
+
+    <script>
+        // Basic Three.js setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 2000);
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true,
+            powerPreference: "high-performance"
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Set camera position
+        camera.position.z = 120;
+        
+        // Performance monitoring removed
+        
+        // Galaxy parameters
+        const totalStars = 229099; // Total number of stars
+        const galaxyRadius = 100; // Galaxy radius
+        const galaxyThickness = 5; // Galaxy thickness
+        const spiralFactor = 0.8; // Spiral arm tightness
+        const rotationSpeed = 0.0005; // Default rotation speed
+        
+        // Control variables
+        let currentRotationSpeed = rotationSpeed;
+        let starBrightness = 0.4; // Increased default brightness
+        let cameraDistance = 120; // Default camera distance
+        
+        // Create particle system for stars
+        const starsGeometry = new THREE.BufferGeometry();
+        const starPositions = new Float32Array(totalStars * 3);
+        const starSizes = new Float32Array(totalStars);
+        
+        // Generate galaxy structure
+        for (let i = 0; i < totalStars; i++) {
+            // Calculate random position within galaxy disk
+            const radius = Math.random() * galaxyRadius;
+            const angle = Math.random() * Math.PI * 2;
+            
+            // Rotation adjustment for spiral shape
+            const spiralAngle = angle + spiralFactor * radius / galaxyRadius;
+            
+            // Calculate position on galaxy plane
+            const x = Math.cos(spiralAngle) * radius;
+            const y = (Math.random() - 0.5) * galaxyThickness * (1 - radius / galaxyRadius);
+            const z = Math.sin(spiralAngle) * radius;
+            
+            // Store position
+            const i3 = i * 3;
+            starPositions[i3] = x;
+            starPositions[i3 + 1] = y;
+            starPositions[i3 + 2] = z;
+            
+            // Stars closer to center appear larger and brighter
+            const distanceFromCenter = Math.sqrt(x*x + z*z);
+            const normalizedDistance = distanceFromCenter / galaxyRadius;
+            starSizes[i] = 1.0 + (1.0 - normalizedDistance) * 2.0;
+        }
+        
+        // Add attributes to buffer geometry
+        starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+        starsGeometry.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+        
+        // Shader material for stars
+        const starsMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+                color: { value: new THREE.Color(0x8a2be2) }, // Purple color
+                starTexture: { value: new THREE.TextureLoader().load(createStarTexture()) },
+                brightness: { value: starBrightness }
+            },
+            vertexShader: `
+                attribute float size;
+                varying float vSize;
+                void main() {
+                    vSize = size;
+                    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+                    gl_PointSize = size * (300.0 / -mvPosition.z);
+                    gl_Position = projectionMatrix * mvPosition;
+                }
+            `,
+            fragmentShader: `
+                uniform vec3 color;
+                uniform sampler2D starTexture;
+                uniform float brightness;
+                varying float vSize;
+                void main() {
+                    vec4 texColor = texture(starTexture, gl_PointCoord);
+                    gl_FragColor = vec4(color, 1.0) * texColor;
+                    
+                    // Stars closer to center are brighter
+                    gl_FragColor.rgb *= (0.6 + 0.5 * vSize) * brightness;
+                    
+                    // Increase overall opacity
+                    gl_FragColor.a = min(1.0, gl_FragColor.a * 1.4);
+                    
+                    // Only discard very transparent pixels
+                    if (gl_FragColor.a < 0.05) discard;
+                }
+            `,
+            blending: THREE.AdditiveBlending,
+            depthTest: false,
+            transparent: true
+        });
+        
+        // Create star particle system for enhanced visibility
+        const stars = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(stars);
+        
+        // Set initial brightness
+        starsMaterial.uniforms.brightness.value = starBrightness;
+        
+        // Create additional stars for background
+        const backgroundStarsGeometry = new THREE.BufferGeometry();
+        const bgStarPositions = new Float32Array(10000 * 3);
+        
+        for (let i = 0; i < 10000; i++) {
+            // Background stars are distributed in a wider space
+            const radius = 100 + Math.random() * 900;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            
+            const x = radius * Math.sin(phi) * Math.cos(theta);
+            const y = radius * Math.sin(phi) * Math.sin(theta);
+            const z = radius * Math.cos(phi);
+            
+            bgStarPositions[i * 3] = x;
+            bgStarPositions[i * 3 + 1] = y;
+            bgStarPositions[i * 3 + 2] = z;
+        }
+        
+        backgroundStarsGeometry.setAttribute('position', new THREE.BufferAttribute(bgStarPositions, 3));
+        
+        const backgroundStarsMaterial = new THREE.PointsMaterial({
+            color: 0xffffff,
+            size: 1.0,
+            transparent: true,
+            opacity: 0.8,
+            blending: THREE.AdditiveBlending
+        });
+        
+        const backgroundStars = new THREE.Points(backgroundStarsGeometry, backgroundStarsMaterial);
+        scene.add(backgroundStars);
+        
+        // Add glowing core at galaxy center
+        const coreGeometry = new THREE.SphereGeometry(5, 32, 32);
+        const coreMaterial = new THREE.MeshBasicMaterial({
+            color: 0x9932cc,
+            transparent: true,
+            opacity: 0.7
+        });
+        const galaxyCore = new THREE.Mesh(coreGeometry, coreMaterial);
+        scene.add(galaxyCore);
+        
+        // Add light at center
+        const coreLight = new THREE.PointLight(0x8a2be2, 1, 100);
+        coreLight.position.set(0, 0, 0);
+        scene.add(coreLight);
+        
+        // Function to create circular star texture
+        function createStarTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 64;
+            canvas.height = 64;
+            
+            const context = canvas.getContext('2d');
+            const gradient = context.createRadialGradient(
+                canvas.width / 2, canvas.height / 2, 0,
+                canvas.width / 2, canvas.height / 2, canvas.width / 2
+            );
+            
+            gradient.addColorStop(0, 'rgba(255, 255, 255, 1)');
+            gradient.addColorStop(0.2, 'rgba(138, 43, 226, 1)');
+            gradient.addColorStop(0.5, 'rgba(138, 43, 226, 0.1)'); // Increased opacity
+            gradient.addColorStop(0.8, 'rgba(138, 43, 226, 0.1)'); // Increased opacity
+            gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            
+            context.fillStyle = gradient;
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            
+            return canvas.toDataURL();
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Removed old button controls - now using sliders instead
+        
+        // Camera rotation based on mouse movement
+        let isMouseDown = false;
+        let previousMouseX = 0, previousMouseY = 0;
+        let targetRotationX = 0, targetRotationY = 0;
+        let isDragging = false;
+        
+        // Track if mouse is over sidebar to avoid camera rotation when interacting with sliders
+        let isOverSidebar = false;
+        
+        // Check if mouse is over sidebar
+        document.getElementById('sidebar').addEventListener('mouseenter', function() {
+            isOverSidebar = true;
+        });
+        
+        document.getElementById('sidebar').addEventListener('mouseleave', function() {
+            isOverSidebar = false;
+        });
+        
+        // Mouse event handlers with improved drag detection
+        function onMouseDown(event) {
+            // Don't activate drag if over sidebar
+            if (isOverSidebar) return;
+            
+            isMouseDown = true;
+            isDragging = false;
+            previousMouseX = event.clientX;
+            previousMouseY = event.clientY;
+            
+            // Prevent text selection during drag
+            event.preventDefault();
+        }
+        
+        function onMouseUp(event) {
+            isMouseDown = false;
+        }
+        
+        function onMouseMove(event) {
+            // Skip camera rotation if over sidebar
+            if (isOverSidebar) return;
+            
+            if (isMouseDown) {
+                // Calculate the movement delta
+                const deltaX = event.clientX - previousMouseX;
+                const deltaY = event.clientY - previousMouseY;
+                
+                // If mouse has moved more than a few pixels, consider it a drag
+                if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
+                    isDragging = true;
+                }
+                
+                // Update rotation based on mouse movement
+                targetRotationY += deltaX * 0.01;
+                targetRotationX += deltaY * 0.01;
+                
+                // Limit vertical rotation to avoid flipping
+                targetRotationX = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, targetRotationX));
+                
+                // Update mouse position for next frame
+                previousMouseX = event.clientX;
+                previousMouseY = event.clientY;
+            }
+        }
+        
+        function onWheel(event) {
+            // Prevent default scrolling behavior
+            event.preventDefault();
+            
+            // Adjust camera zoom based on wheel direction
+            const delta = Math.sign(event.deltaY);
+            cameraDistance = Math.max(30, Math.min(300, cameraDistance + delta * 10));
+            
+            // Update the zoom slider to match
+            document.getElementById('zoomSlider').value = cameraDistance;
+        }
+        
+        // Add touch support for mobile devices
+        function onTouchStart(event) {
+            if (event.touches.length === 1) {
+                isMouseDown = true;
+                isDragging = false;
+                previousMouseX = event.touches[0].clientX;
+                previousMouseY = event.touches[0].clientY;
+            }
+        }
+        
+        function onTouchMove(event) {
+            if (isMouseDown && event.touches.length === 1) {
+                const deltaX = event.touches[0].clientX - previousMouseX;
+                const deltaY = event.touches[0].clientY - previousMouseY;
+                
+                isDragging = true;
+                
+                targetRotationY += deltaX * 0.01;
+                targetRotationX += deltaY * 0.01;
+                
+                // Limit vertical rotation
+                targetRotationX = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, targetRotationX));
+                
+                previousMouseX = event.touches[0].clientX;
+                previousMouseY = event.touches[0].clientY;
+                
+                // Prevent scrolling
+                event.preventDefault();
+            }
+        }
+        
+        function onTouchEnd() {
+            isMouseDown = false;
+        }
+        
+        // Add event listeners
+        document.addEventListener('mousedown', onMouseDown, false);
+        document.addEventListener('mouseup', onMouseUp, false);
+        document.addEventListener('mousemove', onMouseMove, false);
+        document.addEventListener('wheel', onWheel, { passive: false });
+        
+        // Add touch event listeners
+        document.addEventListener('touchstart', onTouchStart, false);
+        document.addEventListener('touchmove', onTouchMove, { passive: false });
+        document.addEventListener('touchend', onTouchEnd, false);
+        
+        // Set up the sliders with improved initialization
+        window.addEventListener('load', function() {
+            console.log("Window loaded, setting up sliders");
+            
+            const zoomSlider = document.getElementById('zoomSlider');
+            const rotationSlider = document.getElementById('rotationSlider');
+            const brightnessSlider = document.getElementById('brightnessSlider');
+            
+            if (zoomSlider) {
+                zoomSlider.value = cameraDistance; // Set initial value
+                zoomSlider.addEventListener('input', function() {
+                    cameraDistance = parseFloat(this.value);
+                });
+                console.log("Zoom slider initialized");
+            }
+            
+            if (rotationSlider) {
+                rotationSlider.addEventListener('input', function() {
+                    currentRotationSpeed = rotationSpeed * parseFloat(this.value) / 5;
+                });
+                console.log("Rotation slider initialized");
+            }
+            
+            if (brightnessSlider) {
+                brightnessSlider.addEventListener('input', function() {
+                    starBrightness = parseFloat(this.value) / 10;
+                    starsMaterial.uniforms.brightness.value = starBrightness;
+                });
+                console.log("Brightness slider initialized");
+            }
+        });
+        
+        // Fallback initialization after a short delay
+        setTimeout(function() {
+            console.log("Fallback slider initialization");
+            
+            const zoomSlider = document.getElementById('zoomSlider');
+            const rotationSlider = document.getElementById('rotationSlider');
+            const brightnessSlider = document.getElementById('brightnessSlider');
+            
+            if (zoomSlider) {
+                zoomSlider.value = cameraDistance;
+                zoomSlider.addEventListener('input', function() {
+                    cameraDistance = parseFloat(this.value);
+                });
+            }
+            
+            if (rotationSlider) {
+                rotationSlider.addEventListener('input', function() {
+                    currentRotationSpeed = rotationSpeed * parseFloat(this.value) / 5;
+                });
+            }
+            
+            if (brightnessSlider) {
+                brightnessSlider.addEventListener('input', function() {
+                    starBrightness = parseFloat(this.value) / 10;
+                    starsMaterial.uniforms.brightness.value = starBrightness;
+                });
+            }
+        }, 500);
+        
+        // Check WebGL version and set appropriate shader versions
+        const context = renderer.getContext();
+        const isWebGL2 = context instanceof WebGL2RenderingContext;
+        console.log('Using WebGL2:', isWebGL2);
+            
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            // Rotate the galaxy
+            stars.rotation.y += currentRotationSpeed;
+            
+            // Apply camera rotation based on mouse input - orbit around the galaxy
+            camera.position.x = cameraDistance * Math.sin(targetRotationY) * Math.cos(targetRotationX);
+            camera.position.y = cameraDistance * Math.sin(targetRotationX);
+            camera.position.z = cameraDistance * Math.cos(targetRotationY) * Math.cos(targetRotationX);
+            camera.lookAt(scene.position);
+            
+            // Core pulsing effect removed as the core was removed
+            
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+    </script>
+</body>
+</html>
